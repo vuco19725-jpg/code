@@ -1,0 +1,38 @@
+database:
+  host: localhost
+  port: 3306
+  user: root
+  password: 123456
+  name: seckill
+  pool:
+    max_open_conns: 50        # 开发环境较小
+    max_idle_conns: 10
+    conn_max_lifetime: 5m
+    conn_max_idle_time: 3m
+    health_check: true
+
+redis:
+  host: localhost
+  port: 6379
+  password: ""
+  db: 0
+  pool:
+    pool_size: 200        # 压测用，提高并发能力
+    min_idle_conns: 20
+
+app:
+  host: 0.0.0.0
+  port: 8080
+  jwt_secret: dev-secret-key-for-local-development-only
+  env: dev
+
+ai:
+  api_key: "sk-56a367eaeea64ecda8e8f8cfe709830c"
+  model: deepseek-chat
+  embed_key: "sk-qsvezhjzoccbiwakltorucfuxowlwnthstjrfvsdcpfpdtpi"
+  embed_model: Qwen/Qwen3-VL-Embedding-8B
+  qdrant_addr: localhost:6333
+  max_tokens: 512
+  temperature: 0.7
+  top_k: 5
+  max_concurrency: 3

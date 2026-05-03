@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>秒杀系统 - 实习项目演示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        .btn-danger {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .auth-section {
+            display: flex;
+            gap: 20px;
+        }
+        .auth-box {
+            flex: 1;
+        }
+        .goods-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .goods-item {
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .goods-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .goods-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .goods-price {
+            color: #f5576c;
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        .goods-original {
+            color: #999;
+            text-decoration: line-through;
+            font-size: 14px;
+        }
+        .goods-stock {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        .goods-time {
+            color: #888;
+            font-size: 12px;
+            margin-bottom: 15px;
+        }
+        .order-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .order-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .order-info {
+            flex: 1;
+        }
+        .order-no {
+            font-family: monospace;
+            color: #333;
+            font-size: 14px;
+        }
+        .order-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status-0 { background: #fff3cd; color: #856404; }
+        .status-1 { background: #d4edda; color: #155724; }
+        .status-2 { background: #f8d7da; color: #721c24; }
+        .result-box {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            display: none;
+        }
+        .result-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .result-error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .user-info {
+            color: white;
+            font-size: 16px;
+        }
+        .hidden { display: none; }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        .config-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .config-box input {
+            background: white;
+        }
+        .api-url {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .empty-msg {
+            text-align: center;
+            padding: 30px;
+            color: #999;
+        }
+        .tab-nav {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            background: #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        .tab-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+        .ai-card { display: none; }
+        .ai-messages {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .ai-msg {
+            margin-bottom: 15px;
+            display: flex;
+        }
+        .ai-msg.user { justify-content: flex-end; }
+        .ai-msg.ai { justify-content: flex-start; }
+        .ai-msg .bubble {
+            max-width: 70%;
+            padding: 10px 15px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .ai-msg.user .bubble {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 2px;
+        }
+        .ai-msg.ai .bubble {
+            background: #e9ecef;
+            color: #333;
+            border-bottom-left-radius: 2px;
+        }
+        .ai-quick-btns {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .ai-quick-btns .q-btn {
+            padding: 6px 12px;
+            border: 1px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .ai-quick-btns .q-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+        .ai-input-row {
+            display: flex;
+            gap: 10px;
+        }
+        .ai-input-row input {
+            flex: 1;
+        }
+        .ai-input-row .btn {
+            padding: 12px 20px;
+        }
+        .ai-loading { color: #888; font-style: italic; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔥 秒杀系统</h1>
+
+        <!-- 配置区域 -->
+        <div class="card">
+            <div class="config-box">
+                <div class="form-group">
+                    <label>API 服务器地址</label>
+                    <input type="text" id="apiBase" placeholder="例如：http://1.2.3.4:8080">
+                    <div class="api-url">自动检测或手动修改</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 用户信息头部 -->
+        <div class="header">
+            <div class="user-info" id="userInfo">未登录</div>
+            <div>
+                <button class="btn btn-primary" id="logoutBtn" onclick="logout()" style="display:none;">退出</button>
+            </div>
+        </div>
+
+        <!-- 认证区域 -->
+        <div class="card" id="authCard">
+            <h2>👤 用户认证</h2>
+            <div class="auth-section">
+                <div class="auth-box">
+                    <h3>登录</h3>
+                    <div class="form-group">
+                        <label>手机号</label>
+                        <input type="text" id="loginPhone" placeholder="13800138001">
+                    </div>
+                    <div class="form-group">
+                        <label>密码</label>
+                        <input type="password" id="loginPwd" placeholder="密码">
+                    </div>
+                    <button class="btn btn-primary" onclick="login()">登录</button>
+                    <div id="loginResult" class="result-box"></div>
+                </div>
+                <div class="auth-box">
+                    <h3>注册</h3>
+                    <div class="form-group">
+                        <label>手机号</label>
+                        <input type="text" id="regPhone" placeholder="13800138002">
+                    </div>
+                    <div class="form-group">
+                        <label>密码</label>
+                        <input type="password" id="regPwd" placeholder="密码">
+                    </div>
+                    <button class="btn btn-danger" onclick="register()">注册</button>
+                    <div id="regResult" class="result-box"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 商品列表 -->
+        <div class="card" id="goodsCard">
+            <h2>📦 秒杀商品</h2>
+            <div class="goods-grid" id="goodsList">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+
+        <!-- 订单列表 -->
+        <div class="card" id="orderCard">
+            <h2>📋 我的订单</h2>
+            <div class="tab-nav">
+                <button class="tab-btn active" onclick="loadOrders('all')">全部</button>
+                <button class="tab-btn" onclick="loadOrders(0)">待支付</button>
+                <button class="tab-btn" onclick="loadOrders(1)">已支付</button>
+                <button class="tab-btn" onclick="loadOrders(2)">已取消</button>
+            </div>
+            <div class="order-list" id="orderList">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+
+        <!-- AI 助手 -->
+        <div class="card ai-card" id="aiCard">
+            <h2>🤖 AI 助手</h2>
+            <div class="ai-quick-btns" id="aiQuickBtns">
+                <div class="loading">加载中...</div>
+            </div>
+            <div class="ai-messages" id="aiMessages"></div>
+            <div class="ai-input-row">
+                <input type="text" id="aiInput" placeholder="输入问题，按 Enter 发送" onkeypress="if(event.key==='Enter')sendAiMessage()">
+                <button class="btn btn-primary" onclick="sendAiMessage()">发送</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== 全局状态 ==========
+        let token = localStorage.getItem('token') || '';
+        let currentUser = localStorage.getItem('userPhone') || '';
+        let aiMessages = [];  // AI 对话历史
+        let exampleQuestions = [];  // 示例问题
+        // ========== 工具函数 ==========
+        function getApiBase() {
+            return document.getElementById('apiBase').value.replace(/\/$/, '');
+        }
+
+        function getHeaders() {
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            if (token) {
+                headers['Authorization'] = 'Bearer ' + token;
+            }
+            return headers;
+        }
+
+        function showResult(elId, success, msg, data) {
+            const el = document.getElementById(elId);
+            el.style.display = 'block';
+            el.className = 'result-box ' + (success ? 'result-success' : 'result-error');
+            el.innerHTML = success
+                ? `✅ ${msg}${data ? '<br>订单号: ' + data : ''}`
+                : `❌ ${msg}`;
+        }
+
+        function formatTime(dateStr) {
+            const d = new Date(dateStr);
+            return d.toLocaleString('zh-CN');
+        }
+
+        function formatStatus(status) {
+            const map = { 0: '待支付', 1: '已支付', 2: '已取消' };
+            return map[status] || '未知';
+        }
+
+        // ========== 认证相关 ==========
+        function updateAuthUI() {
+            const loggedIn = !!token;
+            document.getElementById('authCard').style.display = loggedIn ? 'none' : 'block';
+            document.getElementById('logoutBtn').style.display = loggedIn ? 'inline-block' : 'none';
+            document.getElementById('userInfo').textContent = loggedIn
+                ? `👤 ${currentUser}`
+                : '未登录';
+
+            // 加载数据
+            if (loggedIn) {
+                loadGoods();
+                loadOrders('all');
+                loadAiCapabilities();
+                document.getElementById('aiCard').style.display = 'block';
+            } else {
+                document.getElementById('goodsList').innerHTML = '<div class="empty-msg">请先登录</div>';
+                document.getElementById('orderList').innerHTML = '<div class="empty-msg">请先登录</div>';
+                document.getElementById('aiCard').style.display = 'none';
+            }
+        }
+
+        async function login() {
+            const phone = document.getElementById('loginPhone').value.trim();
+            const password = document.getElementById('loginPwd').value;
+
+            if (!phone || !password) {
+                showResult('loginResult', false, '请填写手机号和密码');
+                return;
+            }
+
+            try {
+                const resp = await fetch(`${getApiBase()}/api/v1/user/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, password })
+                });
+                const data = await resp.json();
+
+                if (data.code === 0) {
+                    token = data.data.token;
+                    currentUser = phone;
+                    localStorage.setItem('token', token);
+                    localStorage.setItem('userPhone', phone);
+                    showResult('loginResult', true, '登录成功');
+                    setTimeout(updateAuthUI, 500);
+                } else {
+                    showResult('loginResult', false, data.msg || '登录失败');
+                }
+            } catch (e) {
+                showResult('loginResult', false, '网络错误: ' + e.message);
+            }
+        }
+
+        async function register() {
+            const phone = document.getElementById('regPhone').value.trim();
+            const password = document.getElementById('regPwd').value;
+
+            if (!phone || !password) {
+                showResult('regResult', false, '请填写手机号和密码');
+                return;
+            }
+
+            try {
+                const resp = await fetch(`${getApiBase()}/api/v1/user/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        phone,
+                        password
+                    })
+                });
+                const data = await resp.json();
+
+                if (data.code === 0) {
+                    showResult('regResult', true, '注册成功，请登录');
+                } else {
+                    showResult('regResult', false, data.msg || '注册失败');
+                }
+            } catch (e) {
+                showResult('regResult', false, '网络错误: ' + e.message);
+            }
+        }
+
+        function logout() {
+            token = '';
+            currentUser = '';
+            localStorage.removeItem('token');
+            localStorage.removeItem('userPhone');
+            aiMessages = [];
+            updateAuthUI();
+        }
+
+        // ========== 商品相关 ==========
+        async function loadGoods() {
+            try {
+                const resp = await fetch(`${getApiBase()}/api/v1/goods`, {
+                    headers: getHeaders()
+                });
+                const data = await resp.json();
+
+                if (data.code === 0) {
+                    renderGoods(data.data.list || []);
+                } else {
+                    document.getElementById('goodsList').innerHTML =
+                        '<div class="empty-msg">加载失败: ' + data.msg + '</div>';
+                }
+            } catch (e) {
+                document.getElementById('goodsList').innerHTML =
+                    '<div class="empty-msg">网络错误，请检查 API 地址</div>';
+            }
+        }
+
+        function renderGoods(goodsList) {
+            const container = document.getElementById('goodsList');
+
+            if (!goodsList || goodsList.length === 0) {
+                container.innerHTML = '<div class="empty-msg">暂无商品</div>';
+                return;
+            }
+
+            container.innerHTML = goodsList.map(g => {
+                const now = new Date();
+                const start = new Date(g.start_time);
+                const end = new Date(g.end_time);
+                const canSeckill = now >= start && now <= end && g.stock > 0;
+                const statusText = now < start ? '未开始' : (now > end ? '已结束' : (g.stock <= 0 ? '已售罄' : '秒杀中'));
+
+                return `
+                <div class="goods-item">
+                    <div class="goods-name">${g.name}</div>
+                    <div class="goods-price">¥${g.price}</div>
+                    <div class="goods-original">原价 ¥${(g.price * 2).toFixed(2)}</div>
+                    <div class="goods-stock">库存: ${g.stock}</div>
+                    <div class="goods-time">${formatTime(g.start_time)} ~ ${formatTime(g.end_time)}</div>
+                    <button class="btn ${canSeckill ? 'btn-danger' : 'btn-primary'}"
+                            onclick="seckill(${g.id})"
+                            ${canSeckill ? '' : 'disabled'}>
+                        ${statusText}
+                    </button>
+                </div>
+                `;
+            }).join('');
+        }
+
+        // ========== 秒杀相关 ==========
+        async function seckill(skuId) {
+            if (!token) {
+                alert('请先登录');
+                return;
+            }
+
+            try {
+                const resp = await fetch(`${getApiBase()}/api/v1/seckill/${skuId}`, {
+                    method: 'POST',
+                    headers: getHeaders()
+                });
+                const data = await resp.json();
+
+                if (data.code === 0) {
+                    const orderId = data.data.order_id;
+                    alert('✅ 秒杀成功！订单号: ' + orderId);
+                    loadGoods();
+
+                    // 乐观更新：立即显示订单（异步写入可能需要时间）
+                    renderOptimisticOrder(orderId, skuId);
+
+                    // 后台轮询等待订单落库后刷新
+                    pollAndRefreshOrder(orderId);
+                } else {
+                    alert('❌ ' + (data.msg || '秒杀失败'));
+                }
+            } catch (e) {
+                alert('❌ 网络错误: ' + e.message);
+            }
+        }
+
+        // 立即显示订单（乐观更新），不让用户看到"暂无订单"
+        function renderOptimisticOrder(orderId, skuId) {
+            const container = document.getElementById('orderList');
+            container.innerHTML = `
+                <div class="order-item" style="animation: fadeIn 0.3s;">
+                    <div class="order-info">
+                        <div class="order-no">订单号: ${orderId}</div>
+                        <div style="color:#666;font-size:12px;margin-top:5px;">
+                            商品ID: ${skuId} | ${new Date().toLocaleString()}
+                        </div>
+                    </div>
+                    <span class="order-status status-0">待确认</span>
+                </div>
+                <div style="text-align:center;color:#999;font-size:12px;padding:8px;">
+                    ⏳ 订单同步中...
+                </div>
+            `;
+        }
+
+        // 后台轮询等待异步订单落库（最多 15 秒）
+        async function pollAndRefreshOrder(orderId) {
+            for (let i = 0; i < 15; i++) {
+                await new Promise(r => setTimeout(r, 1000));
+                try {
+                    const resp = await fetch(`${getApiBase()}/api/v1/orders`, {
+                        headers: getHeaders()
+                    });
+                    const data = await resp.json();
+                    if (data.code === 0) {
+                        const orders = data.data.list || [];
+                        if (orders.some(o => o.order_no === orderId)) {
+                            // 订单已落库，刷新真实数据
+                            loadOrders('all');
+                            return;
+                        }
+                    }
+                } catch (e) { /* 忽略，继续重试 */ }
+            }
+            // 超时：刷新为真实列表（订单可能最终写入失败）
+            loadOrders('all');
+        }
+
+        // ========== 订单相关 ==========
+        async function loadOrders(status) {
+            if (!token) return;
+
+            // 更新 tab 状态
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.textContent === (status === 0 ? '待支付' : status === 1 ? '已支付' : status === 2 ? '已取消' : '全部')) {
+                    btn.classList.add('active');
+                }
+            });
+
+            try {
+                const resp = await fetch(`${getApiBase()}/api/v1/orders`, {
+                    headers: getHeaders()
+                });
+                const data = await resp.json();
+
+                if (data.code === 0) {
+                    let orders = data.data.list || [];
+                    // 客户端过滤
+                    if (status !== 'all') {
+                        orders = orders.filter(o => o.status === status);
+                    }
+                    renderOrders(orders);
+                } else {
+                    document.getElementById('orderList').innerHTML =
+                        '<div class="empty-msg">加载失败: ' + data.msg + '</div>';
+                }
+            } catch (e) {
+                document.getElementById('orderList').innerHTML =
+                    '<div class="empty-msg">网络错误</div>';
+            }
+        }
+
+        function renderOrders(orders) {
+            const container = document.getElementById('orderList');
+
+            if (!orders || orders.length === 0) {
+                container.innerHTML = '<div class="empty-msg">暂无订单</div>';
+                return;
+            }
+
+            container.innerHTML = orders.map(o => `
+                <div class="order-item">
+                    <div class="order-info">
+                        <div class="order-no">订单号: ${o.order_no}</div>
+                        <div style="color:#666;font-size:12px;margin-top:5px;">
+                            商品ID: ${o.sku_id} | ${formatTime(o.created_at)}
+                        </div>
+                    </div>
+                    <span class="order-status status-${o.status}">${formatStatus(o.status)}</span>
+                </div>
+            `).join('');
+        }
+
+        // ========== AI 相关 ==========
+        async function loadAiCapabilities() {
+            try {
+                const resp = await fetch(`${getApiBase()}/ai/capabilities`, {
+                    headers: getHeaders()
+                });
+                const data = await resp.json();
+
+                if (data.code === 0) {
+                    exampleQuestions = data.data.example_questions || [];
+                    renderQuickButtons();
+                }
+            } catch (e) {
+                document.getElementById('aiQuickBtns').innerHTML = '<span style="color:#999">示例问题加载失败</span>';
+            }
+        }
+
+        function renderQuickButtons() {
+            const container = document.getElementById('aiQuickBtns');
+            if (exampleQuestions.length === 0) {
+                container.innerHTML = '<span style="color:#999">暂无可用问题</span>';
+                return;
+            }
+            container.innerHTML = exampleQuestions.map(q =>
+                `<button class="q-btn" onclick="askQuickQuestion('${q.replace(/'/g, "\\'")}')">${q}</button>`
+            ).join('');
+        }
+
+        function askQuickQuestion(question) {
+            document.getElementById('aiInput').value = question;
+            sendAiMessage();
+        }
+
+        async function sendAiMessage() {
+            const input = document.getElementById('aiInput');
+            const question = input.value.trim();
+            if (!question) return;
+
+            if (!token) {
+                alert('请先登录');
+                return;
+            }
+
+            // 添加用户消息
+            aiMessages.push({ role: 'user', content: question });
+
+            // 添加 AI 消息占位（流式更新）
+            const aiMsgIdx = aiMessages.length;
+            aiMessages.push({ role: 'ai', content: '', refs: [] });
+
+            input.value = '';
+            renderAiMessages();
+
+            // 调用 AI SSE 流式
+            try {
+                const resp = await fetch(`${getApiBase()}/ai/chatSSE`, {
+                    method: 'POST',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ question })
+                });
+
+                const reader = resp.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let refsLoaded = false;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+
+                    // 容错处理：截断的 JSON 行暂存，等拼完再解析
+                    while (buffer.includes('\n')) {
+                        const newlineIdx = buffer.indexOf('\n');
+                        const line = buffer.slice(0, newlineIdx).trim();
+                        buffer = buffer.slice(newlineIdx + 1);
+
+                        if (!line.startsWith('data: ')) continue;
+                        const data = line.slice(6).trim();
+                        if (data === '[DONE]') continue;
+
+                        // 解析 SSE 数据
+                        if (!refsLoaded && data.startsWith('{')) {
+                            try {
+                                const json = JSON.parse(data);
+                                if (json.refs) {
+                                    aiMessages[aiMsgIdx].refs = json.refs;
+                                    refsLoaded = true;
+                                }
+                            } catch {}
+                        } else {
+                            // 增量文本 - 累积 buffer 直到解析成功
+                            try {
+                                const token = JSON.parse(data);
+                                aiMessages[aiMsgIdx].content += token;
+                                renderAiMessages();
+                            } catch {
+                                // 解析失败，可能是截断行，丢弃（避免死循环）
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                // SSE 失败，降级到普通接口
+                try {
+                    const resp = await fetch(`${getApiBase()}/ai/chat`, {
+                        method: 'POST',
+                        headers: getHeaders(),
+                        body: JSON.stringify({ question })
+                    });
+                    const data = await resp.json();
+                    if (data.code === 0) {
+                        aiMessages[aiMsgIdx].content = data.data.answer || 'AI 服务暂时无法回答';
+                    } else {
+                        aiMessages[aiMsgIdx].content = data.msg || 'AI 服务暂时不可用';
+                    }
+                } catch (e2) {
+                    aiMessages[aiMsgIdx].content = '网络错误，请稍后重试';
+                }
+            }
+
+            renderAiMessages();
+        }
+
+        function renderAiMessages() {
+            const container = document.getElementById('aiMessages');
+            if (aiMessages.length === 0) {
+                container.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">开始对话吧！</div>';
+                return;
+            }
+
+            container.innerHTML = aiMessages.map((msg, idx) => {
+                if (msg.role === 'user') {
+                    return `<div class="ai-msg user"><div class="bubble">${escapeHtml(msg.content)}</div></div>`;
+                } else {
+                    return `<div class="ai-msg ai"><div class="bubble">${escapeHtml(msg.content)}</div></div>`;
+                }
+            }).join('');
+
+            // 滚动到底部
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ========== 初始化 ==========
+        document.addEventListener('DOMContentLoaded', function() {
+            autoDetectApiBase();
+            updateAuthUI();
+        });
+
+        function autoDetectApiBase() {
+            const apiBaseInput = document.getElementById('apiBase');
+            const currentOrigin = window.location.origin;
+
+            // 如果是本地测试环境，自动填入 localhost:8080
+            if (currentOrigin === 'http://localhost:3000' ||
+                currentOrigin === 'http://127.0.0.1:3000' ||
+                currentOrigin.startsWith('http://localhost:') ||
+                currentOrigin.startsWith('http://127.0.0.1:')) {
+                apiBaseInput.value = 'http://localhost:8080';
+            } else {
+                // 线上环境，使用当前域名
+                apiBaseInput.value = currentOrigin;
+            }
+        }
+    </script>
+</body>
+</html>

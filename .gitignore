@@ -1,0 +1,16 @@
+# 编译产物
+seckill
+qdrant
+*.exe
+
+# IDE
+.idea/
+.vscode/
+
+# 日志
+logs/
+*.log
+
+# 环境配置
+.env
+config_prod.yaml
