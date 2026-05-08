@@ -27,9 +27,10 @@ type SeckillGoods struct {
 type Order struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	OrderNo   string    `gorm:"uniqueIndex;size:64;not null" json:"order_no"`
-	UserID    uint      `gorm:"uniqueIndex:idx_user_sku;not null" json:"user_id"`
-	SkuID     uint      `gorm:"uniqueIndex:idx_user_sku;not null" json:"sku_id"`
+	UserID    uint      `gorm:"index;not null" json:"user_id"`
+	SkuID     uint      `gorm:"index;not null" json:"sku_id"`
 	Status    int       `gorm:"default:0" json:"status"` // 0:待支付 1:已支付 2:已取消
+	QueueToken string   `gorm:"-" json:"queue_token"`    // 排队 token，不入库，仅用于 Kafka 消息
 	CreatedAt time.Time `json:"created_at"`
 }
 

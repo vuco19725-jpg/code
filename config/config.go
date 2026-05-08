@@ -13,6 +13,7 @@ type Config struct {
 	Redis    RedisConfig    `mapstructure:"redis"`
 	App      AppConfig      `mapstructure:"app"`
 	AI       AIConfig       `mapstructure:"ai"`
+	Kafka    KafkaConfig    `mapstructure:"kafka"`
 }
 
 type AIConfig struct {
@@ -55,11 +56,12 @@ var DefaultDatabasePoolConfig = DatabasePoolConfig{
 }
 
 type RedisConfig struct {
-	Host     string       `mapstructure:"host"`
-	Port     int          `mapstructure:"port"`
-	Password string       `mapstructure:"password"`
-	DB       int          `mapstructure:"db"`
-	Pool     RedisPoolConfig `mapstructure:"pool"`
+	Host       string         `mapstructure:"host"`
+	Port       int            `mapstructure:"port"`
+	Password   string         `mapstructure:"password"`
+	DB         int            `mapstructure:"db"`
+	SocketPath string         `mapstructure:"socket_path"`
+	Pool       RedisPoolConfig `mapstructure:"pool"`
 }
 
 // RedisPoolConfig Redis 连接池配置
@@ -72,6 +74,20 @@ type RedisPoolConfig struct {
 var DefaultRedisPoolConfig = RedisPoolConfig{
 	PoolSize:     100,
 	MinIdleConns: 10,
+}
+
+// KafkaConfig Kafka 配置
+type KafkaConfig struct {
+	Brokers       []string `mapstructure:"brokers"`
+	Topic         string   `mapstructure:"topic"`
+	ConsumerGroup string   `mapstructure:"consumer_group"`
+}
+
+// DefaultKafkaConfig 默认 Kafka 配置
+var DefaultKafkaConfig = KafkaConfig{
+	Brokers:       []string{"localhost:9092"},
+	Topic:         "seckill-orders",
+	ConsumerGroup: "seckill-order-processor",
 }
 
 type AppConfig struct {
@@ -96,6 +112,17 @@ func LoadConfig(env string) error {
 	GlobalConfig = &Config{}
 	if err := viper.Unmarshal(GlobalConfig); err != nil {
 		return err
+	}
+
+	// Kafka 默认值
+	if len(GlobalConfig.Kafka.Brokers) == 0 {
+		GlobalConfig.Kafka.Brokers = DefaultKafkaConfig.Brokers
+	}
+	if GlobalConfig.Kafka.Topic == "" {
+		GlobalConfig.Kafka.Topic = DefaultKafkaConfig.Topic
+	}
+	if GlobalConfig.Kafka.ConsumerGroup == "" {
+		GlobalConfig.Kafka.ConsumerGroup = DefaultKafkaConfig.ConsumerGroup
 	}
 
 	// JWT Secret 校验

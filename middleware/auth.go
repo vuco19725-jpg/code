@@ -29,24 +29,26 @@ func JWTAuth() gin.HandlerFunc {
 		}
 
 		tokenString := parts[1]
-		claims, err := utils.ParseToken(tokenString)
+
+		// 从缓存获取或解析 JWT（缓存命中时跳过解析和 Redis 单设备检查）
+		claims, cached, err := utils.GetClaimsFromCacheOrParse(tokenString)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, utils.Resp(401, "无效的token", nil))
 			c.Abort()
 			return
 		}
 
-		userID := claims.UserID
-
-		// 检查是否被挤下线（单设备登录）
-		storedToken, err := repository.GetString(c.Request.Context(), repository.UserTokenKey(strconv.Itoa(int(userID))))
-		if err != nil || storedToken != tokenString {
-			c.JSON(http.StatusUnauthorized, utils.Resp(401, "账号已在其他设备登录", nil))
-			c.Abort()
-			return
+		// 首次解析时才检查单设备登录（Redis 检查）
+		if !cached {
+			storedToken, err := repository.GetString(c.Request.Context(), repository.UserTokenKey(strconv.Itoa(int(claims.UserID))))
+			if err != nil || storedToken != tokenString {
+				c.JSON(http.StatusUnauthorized, utils.Resp(401, "账号已在其他设备登录", nil))
+				c.Abort()
+				return
+			}
 		}
 
-		c.Set("user_id", userID)
+		c.Set("user_id", claims.UserID)
 		c.Set("user_role", claims.Role)
 		c.Next()
 	}
@@ -76,8 +78,6 @@ func AdminAuth() gin.HandlerFunc {
 			return
 		}
 
-		// 从 Redis 查 role（JWT 中未携带 role，需从 DB 或 context 获取）
-		// 此处从 context 中取，需在 JWTAuth 阶段将 role 写入
 		userRole := c.GetString("user_role")
 		if userRole != "admin" {
 			c.JSON(http.StatusForbidden, utils.Resp(403, "权限不足", nil))

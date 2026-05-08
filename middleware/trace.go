@@ -1,15 +1,21 @@
 package middleware
 
 import (
+	"fmt"
+	"sync/atomic"
+	"time"
+
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
+
+var traceIDCounter atomic.Uint64
 
 func TraceID() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		traceID := c.GetHeader("X-Trace-ID")
 		if traceID == "" {
-			traceID = uuid.New().String()
+			n := traceIDCounter.Add(1)
+			traceID = fmt.Sprintf("%d-%d", time.Now().UnixMilli(), n)
 		}
 
 		c.Set("trace_id", traceID)

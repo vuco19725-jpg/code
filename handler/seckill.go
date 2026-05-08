@@ -11,8 +11,6 @@ import (
 	"seckill/utils"
 
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
-	"gorm.io/gorm"
 )
 
 // SeckillHandler 秒杀处理器
@@ -22,9 +20,9 @@ type SeckillHandler struct {
 }
 
 // NewSeckillHandler 创建秒杀处理器
-func NewSeckillHandler(db *gorm.DB, redis *redis.Client) *SeckillHandler {
+func NewSeckillHandler(seckillService *service.SeckillService) *SeckillHandler {
 	return &SeckillHandler{
-		seckillService: service.NewSeckillService(db, redis),
+		seckillService: seckillService,
 		breaker: utils.NewCircuitBreaker(utils.CircuitBreakerConfig{
 			FailureThreshold: 5,        // 5次失败触发熔断
 			SuccessThreshold: 3,        // 3次成功恢复
@@ -57,23 +55,42 @@ func (h *SeckillHandler) Seckill(c *gin.Context) {
 	defer cancel()
 
 	// ========== 步骤4：执行秒杀 ==========
-	orderNo, err := h.seckillService.Seckill(ctx, userID, uint(skuID), traceID)
+	queueToken, err := h.seckillService.Seckill(ctx, userID, uint(skuID), traceID)
 	if err != nil {
-		// 记录失败到熔断器
-		h.breaker.RecordFailure()
-
 		code, msg := h.seckillService.ErrorCode(err)
+		if code == 5001 {
+			h.breaker.RecordFailure()
+		}
 		c.JSON(http.StatusOK, utils.Resp(code, msg, nil))
 		return
 	}
 
-	// ========== 步骤5：记录成功到熔断器 ==========
 	h.breaker.RecordSuccess()
 
-	utils.Success(c, gin.H{
-		"order_id": orderNo,
-		"status":   "pending",
-	})
+	c.JSON(http.StatusOK, utils.Resp(0, "排队中", gin.H{
+		"queue_token": queueToken,
+		"status":      "queuing",
+	}))
+}
+
+// PollOrder 轮询秒杀排队结果  GET /api/v1/seckill/queue/:token
+func (h *SeckillHandler) PollOrder(c *gin.Context) {
+	token := c.Param("token")
+	if token == "" {
+		c.JSON(http.StatusBadRequest, utils.Resp(1001, "参数错误", nil))
+		return
+	}
+
+	orderNo, status, err := h.seckillService.PollOrderStatus(token)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, utils.Resp(5001, "系统错误", nil))
+		return
+	}
+
+	c.JSON(http.StatusOK, utils.Resp(0, "success", gin.H{
+		"status":   status,
+		"order_no": orderNo,
+	}))
 }
 
 // GetOrder 查询订单
@@ -119,6 +136,7 @@ func (h *SeckillHandler) GetMyOrders(c *gin.Context) {
 		"page":      p.Page,
 		"page_size": p.PageSize,
 	}))
+
 }
 
 // GetBreakerStatus 获取熔断器状态（监控用）
@@ -132,15 +150,5 @@ func (h *SeckillHandler) GetBreakerStatus(c *gin.Context) {
 		"total_successes":  stats.TotalSuccesses,
 		"failure_rate":     fmt.Sprintf("%.2f%%", stats.FailureRate*100),
 		"last_change":      stats.LastStateChange.Format("2006-01-02 15:04:05"),
-	}))
-}
-
-// GetAsyncStats 异步处理统计
-func (h *SeckillHandler) GetAsyncStats(c *gin.Context) {
-	async, sync, deadLetter := h.seckillService.GetAsyncStats()
-	c.JSON(http.StatusOK, utils.Resp(0, "success", gin.H{
-		"async_success":   async,
-		"sync_fallback":   sync,
-		"dead_letter":     deadLetter,
 	}))
 }

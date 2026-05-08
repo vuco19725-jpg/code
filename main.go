@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -38,6 +39,13 @@ func main() {
 
 	cfg := config.GlobalConfig
 
+	// 端口覆盖（多实例测试用）
+	if portStr := os.Getenv("SECKILL_PORT"); portStr != "" {
+		if port, err := strconv.Atoi(portStr); err == nil {
+			cfg.App.Port = port
+		}
+	}
+
 	// 初始化日志
 	utils.InitLogger(cfg.App.Env)
 	defer utils.Sync()
@@ -67,17 +75,49 @@ func main() {
 		panic(err)
 	}
 
-	
+	// 初始化 Kafka Producer
+	kafkaProducer, err := service.NewAsyncKafkaProducer(&cfg.Kafka)
+	if err != nil {
+		utils.Error("init kafka producer failed", utils.Err(err))
+		panic(err)
+	}
+	service.StartProducerCallbacks(kafkaProducer)
+	defer kafkaProducer.AsyncClose()
+
+	// 初始化 Kafka Consumer Group
+	kafkaConsumerGroup, err := service.NewKafkaConsumerGroup(&cfg.Kafka)
+	if err != nil {
+		utils.Error("init kafka consumer failed", utils.Err(err))
+		panic(err)
+	}
+	defer kafkaConsumerGroup.Close()
+
+	// 初始化业务服务
+	seckillSvc := service.NewSeckillService(repository.DB, repository.Redis, kafkaProducer, cfg.Kafka.Topic)
+	// 启动后台周期性库存同步（每30秒将Redis库存同步到MySQL）
+	stockSyncStop := make(chan struct{})
+	seckillSvc.StartPeriodicStockSync([]uint{2, 3}, 30*time.Second, stockSyncStop)
+
+	// 启动待处理订单 Worker（可靠发送到 Kafka）
+	seckillSvc.StartPendingWorker(context.Background())
+		// 启动兜底队列消费者（从 Redis fallback 读取，重新发送到 Kafka）
+		seckillSvc.StartFallbackWorker(context.Background())
+
+	// 启动 Kafka 订单消费者
+	orderConsumer := service.NewOrderConsumer(repository.DB, repository.Redis, kafkaConsumerGroup, cfg.Kafka.Topic)
+	orderConsumer.Start(context.Background())
+
 	// 创建 Gin 引擎
 	if cfg.App.Env == "prod" {
 		gin.SetMode(gin.ReleaseMode)
-	}// 初始化 Handler
+	}
+
+	// 初始化 Handler
 	userHandler := handler.NewUserHandler(repository.DB)
 	goodsHandler := handler.NewGoodsHandler(repository.DB)
-	seckillHandler := handler.NewSeckillHandler(repository.DB, repository.Redis)
+	seckillHandler := handler.NewSeckillHandler(seckillSvc)
 	healthHandler := handler.NewHealthHandler()
 	aiHandler := handler.NewAIHandler(aiService)
-
 
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -98,10 +138,7 @@ func main() {
 	router.POST("/ai/chatSSE", aiHandler.ChatSSE)
 
 	// 熔断器状态监控（生产环境可移除）
-	router.GET("/api/v1/seckill/breaker", seckillHandler.GetBreakerStatus)
-	router.GET("/api/v1/seckill/async_stats", seckillHandler.GetAsyncStats)
-
-	// API v1
+	router.GET("/api/v1/seckill/breaker", seckillHandler.GetBreakerStatus)	// API v1
 	v1 := router.Group("/api/v1")
 	{
 		// 用户模块
@@ -116,10 +153,11 @@ func main() {
 		// 秒杀模块（需要登录）
 		seckill := v1.Group("/seckill")
 		seckill.Use(middleware.JWTAuth())
-		seckill.Use(middleware.RateLimitByIP(60, time.Minute))      // 恢复：IP限流 60/分钟
-		seckill.Use(middleware.RateLimitByUser(10, time.Minute))    // 恢复：用户限流 10/分钟
+		seckill.Use(middleware.RateLimitByIP(60, time.Minute))
+		seckill.Use(middleware.RateLimitByUser(10, time.Minute))
 		{
 			seckill.POST("/:sku_id", seckillHandler.Seckill)
+			seckill.GET("/queue/:token", seckillHandler.PollOrder)
 		}
 
 		// 订单模块（需要登录）
@@ -205,21 +243,28 @@ func main() {
 		utils.Info("http server stopped")
 	}
 
-	// 3. 再次检查是否还有未完成的请求
+	// 3. 停止 Kafka 消费者（确保正在消费的订单提交偏移量）
+	orderConsumer.Stop()
+	utils.Info("kafka consumer stopped")
+
+	// 停止后台库存同步（触发最终同步）
+	close(stockSyncStop)
+	utils.Info("stock sync stopped")
+	// 4. 再次检查是否还有未完成的请求
 	if remaining := requestCounter.ActiveCount(); remaining > 0 {
 		utils.Warn("some requests did not complete",
 			utils.Int64("remaining_requests", remaining),
 		)
 	}
 
-	// 4. 关闭数据库连接
+	// 5. 关闭数据库连接
 	if err := repository.CloseDB(); err != nil {
 		utils.Error("database close error", utils.Err(err))
 	} else {
 		utils.Info("database connection closed")
 	}
 
-	// 5. 关闭 Redis 连接
+	// 6. 关闭 Redis 连接
 	if err := repository.CloseRedis(); err != nil {
 		utils.Error("redis close error", utils.Err(err))
 	} else {

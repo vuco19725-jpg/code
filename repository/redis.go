@@ -40,8 +40,16 @@ func InitRedis(cfg *config.RedisConfig) error {
 		poolCfg.MinIdleConns = config.DefaultRedisPoolConfig.MinIdleConns
 	}
 
+	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
+	network := "tcp"
+	if cfg.SocketPath != "" {
+		addr = cfg.SocketPath
+		network = "unix"
+	}
+
 	Redis = redis.NewClient(&redis.Options{
-		Addr:         fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
+		Network:      network,
+		Addr:         addr,
 		Password:     cfg.Password,
 		DB:           cfg.DB,
 		PoolSize:     poolCfg.PoolSize,
@@ -192,6 +200,16 @@ func GetGoods(ctx context.Context, skuID string) (string, error) {
 // SetGoods 设置商品信息缓存
 func SetGoods(ctx context.Context, skuID string, goodsJSON string, expiration time.Duration) error {
 	return Redis.Set(ctx, GoodsKey(skuID), goodsJSON, expiration).Err()
+}
+
+// 排队状态 Key
+func QueueStatusKey(token string) string {
+	return fmt.Sprintf("queue:status:%s", token)
+}
+
+// FallbackQueueKey 兜底队列 Key（pendingChan 满时写入 Redis 兜底）
+func FallbackQueueKey() string {
+	return "seckill:queue:fallback"
 }
 
 // SetWithExpire 设置带过期时间的 Key
