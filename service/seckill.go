@@ -72,6 +72,7 @@ type SeckillService struct {
 	pendingChan    chan *pendingOrder
 	localGoodsCache sync.Map    // key: skuStr, value: *localGoodsEntry, 3s TTL
 	soldOutCache   sync.Map    // key: "skuStr:bucketID", value: true
+	degradeLimiter *utils.RateLimiter // 降级限流器：Redis 故障时保护 MySQL
 }
 
 // localGoodsEntry 本地缓存条目
@@ -85,11 +86,12 @@ const goodsCacheTTL = 3 * time.Second
 // NewSeckillService 创建秒杀服务
 func NewSeckillService(db *gorm.DB, redis *redis.Client, producer sarama.AsyncProducer, topic string) *SeckillService {
 	return &SeckillService{
-		db:          db,
-		redis:       redis,
-		producer:    producer,
-		topic:       topic,
-		pendingChan: make(chan *pendingOrder, 100000),
+		db:             db,
+		redis:          redis,
+		producer:       producer,
+		topic:          topic,
+		pendingChan:    make(chan *pendingOrder, 100000),
+		degradeLimiter: utils.NewRateLimiter(200),
 	}
 }
 
@@ -345,7 +347,7 @@ func (s *SeckillService) Seckill(ctx context.Context, userID, skuID uint, traceI
 			utils.String("sku_id", skuStr),
 			utils.Err(err),
 		)
-		return s.seckillWithMySQL(ctx, userID, skuID, traceID)
+		return s.degradeToMySQL(ctx, userID, skuID, traceID)
 	}
 
 	switch result {
@@ -364,7 +366,7 @@ func (s *SeckillService) Seckill(ctx context.Context, userID, skuID uint, traceI
 				utils.String("trace_id", traceID),
 				utils.Err(err),
 			)
-			return s.seckillWithMySQL(ctx, userID, skuID, traceID)
+			return s.degradeToMySQL(ctx, userID, skuID, traceID)
 		}
 		if !set {
 			utils.Info("库存桶已被其他请求回填", utils.String("trace_id", traceID))
@@ -372,7 +374,7 @@ func (s *SeckillService) Seckill(ctx context.Context, userID, skuID uint, traceI
 		// 重新执行 Lua（SetNX 成功时自己回填了桶，失败时别人回填了桶）
 		result, err = s.redis.Eval(ctx, script, []string{purchaseKey, stockKey, statusKey}, checkFlag).Int()
 		if err != nil {
-			return s.seckillWithMySQL(ctx, userID, skuID, traceID)
+			return s.degradeToMySQL(ctx, userID, skuID, traceID)
 		}
 		if result == -1 {
 			s.soldOutCache.Store(soldOutKey, true)
@@ -460,6 +462,20 @@ func (s *SeckillService) rollbackBucketWithRetry(ctx context.Context, stockKey, 
 		utils.String("sku_id", skuStr),
 		utils.Int("bucket_id", bucketID),
 	)
+}
+
+// degradeToMySQL 降级到 MySQL（带限流保护）
+// Redis 故障时，控制降级流量，防止 MySQL 被打垮
+func (s *SeckillService) degradeToMySQL(ctx context.Context, userID, skuID uint, traceID string) (string, error) {
+	if !s.degradeLimiter.Allow() {
+		utils.Warn("降级限流触发，请求被拒绝",
+			utils.String("trace_id", traceID),
+			utils.Int("user_id", int(userID)),
+			utils.Int("sku_id", int(skuID)),
+		)
+		return "", ErrSystemError
+	}
+	return s.degradeToMySQL(ctx, userID, skuID, traceID)
 }
 
 // seckillWithMySQL MySQL直接扣减（降级方案）
