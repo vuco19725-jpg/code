@@ -14,3 +14,4 @@ jobs:
       language: go
     secrets:
       DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      BOT_PAT: ${{ secrets.BOT_PAT }}
