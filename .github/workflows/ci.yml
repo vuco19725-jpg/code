@@ -4,9 +4,15 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read
+
 jobs:
   pr-check:
     uses: vuco19725-jpg/cicd-workflows/.github/workflows/pr-check.yml@v1
     with:
       language: go
-    secrets: inherit
+    secrets:
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
