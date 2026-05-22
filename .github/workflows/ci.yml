@@ -1,5 +1,4 @@
 name: CI
-
 on:
   pull_request:
     branches: [main]
@@ -7,11 +6,10 @@ on:
 permissions:
   contents: read
   pull-requests: write
-  actions: read
 
 jobs:
   pr-check:
-    uses: vuco19725-jpg/cicd-workflows/.github/workflows/pr-check.yml@v1
+    uses: vuco19725-jpg/cicd-workflows/.github/workflows/pr-check.yml@main
     with:
       language: go
     secrets:
