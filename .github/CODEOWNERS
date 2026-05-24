@@ -1,0 +1,7 @@
+# 敏感文件 - 必须人工 Review
+config/**       @vuco19725-jpg
+deploy/**       @vuco19725-jpg
+**/Dockerfile   @vuco19725-jpg
+**/*.yml        @vuco19725-jpg
+**/*.yaml       @vuco19725-jpg
+migrations/**   @vuco19725-jpg
